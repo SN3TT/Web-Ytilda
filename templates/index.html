@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 18px;
+            color: #005566;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        .input-group label {
+            font-size: 16px;
+            color: #333;
+        }
+        .input-group input {
+            font-size: 16px;
+            padding: 5px;
+            margin-left: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .upload-area {
+            border: 2px dashed #005566;
+            padding: 20px;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        .upload-area.dragover {
+            background-color: #e6f3ff;
+        }
+        button {
+            background-color: #005566;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 10px;
+        }
+        button:hover {
+            background-color: #003d4a;
+        }
+        .preview img {
+            max-width: 100%;
+            height: auto;
+            margin-top: 10px;
+        }
+        .error {
+            color: red;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Image Generator</h1>
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+        <div class="upload-area" id="uploadArea">
+            <p>Drag and drop an image here or click to select (JPEG/PNG)</p>
+            <input type="file" name="image" id="image" accept=".jpg,.jpeg,.png" style="display: none;">
+        </div>
+        <div class="preview" id="uploadedImagePreview" style="display: none;">
+            <h2>Uploaded Image</h2>
+            <img id="uploadedImage" src="" alt="Uploaded Image">
+        </div>
+        <form id="processForm" method="post" action="/process">
+            <input type="hidden" name="uploaded_image" id="uploadedImagePath">
+            <div class="input-group">
+                <label for="width">Width (px):</label>
+                <input type="number" name="width" id="width" min="1" required>
+            </div>
+            <div class="input-group">
+                <label for="height">Height (px):</label>
+                <input type="number" name="height" id="height" min="1" required>
+            </div>
+            <div class="input-group">
+                <label for="target_size">Target Size (KB):</label>
+                <input type="number" name="target_size" id="target_size" min="1" required>
+            </div>
+            <button type="submit">Process Image</button>
+        </form>
+        {% if processed_image %}
+            <div class="preview">
+                <h2>Processed Image</h2>
+                <img src="{{ processed_image }}" alt="Processed Image">
+                <br>
+                <a href="{{ processed_image }}"><button>Download Image</button></a>
+            </div>
+        {% endif %}
+    </div>
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('image');
+        const uploadedImagePreview = document.getElementById('uploadedImagePreview');
+        const uploadedImage = document.getElementById('uploadedImage');
+        const uploadedImagePath = document.getElementById('uploadedImagePath');
+        const errorElement = document.querySelector('.error') || document.createElement('p');
+
+        errorElement.className = 'error';
+        errorElement.style.display = 'none';
+        uploadArea.parentNode.insertBefore(errorElement, uploadArea);
+
+        function showError(message) {
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        function clearError() {
+            errorElement.textContent = '';
+            errorElement.style.display = 'none';
+        }
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            fileInput.files = e.dataTransfer.files;
+            handleFileUpload();
+        });
+        fileInput.addEventListener('change', handleFileUpload);
+
+        function handleFileUpload() {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showError(data.error);
+                    uploadedImagePreview.style.display = 'none';
+                    uploadedImagePath.value = '';
+                } else {
+                    clearError();
+                    uploadedImage.src = data.uploaded_image;
+                    uploadedImagePath.value = data.uploaded_image;
+                    uploadedImagePreview.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                showError('Error uploading image: ' + error.message);
+                uploadedImagePreview.style.display = 'none';
+                uploadedImagePath.value = '';
+            });
+        }
+    </script>
+</body>
+</html>
